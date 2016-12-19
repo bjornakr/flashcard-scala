@@ -133,13 +133,18 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
         val uri = baseUri
 
         "valid card" should {
-            "create card" in {
-                val bdy = "{ \"front\": \"A\", \"back\": \"B\", \"exampleOfUse\": \"C\" }"
-                val byteV: ByteVector = ByteVector.encodeUtf8(bdy).right.getOrElse(ByteVector(0))
-                val body = scalaz.stream.Process.emit(byteV)
-                val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, body) //.withBody("Hei!")
-                val response = client.toHttpService.run(request).withBody("Hei!").run
+            val body = toBody("{ \"front\": \"A\", \"back\": \"B\", \"exampleOfUse\": \"C\" }")
+            "give 201 created" in {
+                val request = Request(Method.POST, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
                 assert(response.status == Status.Created)
+            }
+
+            "return card in body" in {
+                val request = Request(Method.POST, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
+                val responseBody = extractBody(response)
+                assert(responseBody == "biff")
             }
         }
         "front text is missing" should {
@@ -150,8 +155,13 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
                 val body = EmptyBody // Process.emit(byteV)
                 val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, body) //.withBody("Hei!")
                 val response = client.toHttpService.run(request).withBody("Hei!").run
-                assert(response.status == Status.Ok)
+                assert(response.status == Status.BadRequest)
             }
         }
+    }
+
+    def toBody(body: String): EntityBody = {
+        val byteV: ByteVector = ByteVector.encodeUtf8(body).right.getOrElse(ByteVector(0))
+        scalaz.stream.Process.emit(byteV)
     }
 }

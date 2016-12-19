@@ -1,15 +1,13 @@
 package presentation
 
-import application.{CardUseCases, Dto}
+import application.Dto
 import cats.data.Xor
 import infrastructure.{SystemMessage, SystemMessages}
 import io.circe.generic.auto._
-import io.circe.syntax._
-import org.http4s.dsl.{Root, _}
-import org.http4s._
-import io.circe.generic.auto._
 import io.circe.parser._
-import scala.concurrent.ExecutionContext.Implicits.global
+import io.circe.syntax._
+import org.http4s._
+import org.http4s.dsl.{Root, _}
 
 import scalaz.concurrent.Task
 
@@ -49,34 +47,22 @@ object TestApi {
             }
         }
 
-//        case GET -> Root / "cards" / id => {
-//            val result = cardService.getFuture(id)
-//            result.map {
-//                case Left(e) => decideStatus(e)
-//                case Right(r) => {
-//                    val jsonResult = r.asJson.noSpaces
-//                    Ok(jsonResult)
-//                }
-//            }
-//            Ok(result)
-//        }
-
-
-
         case request@POST -> Root / "cards" => {
             val body = EntityDecoder.decodeString(request).run
             val card = decode[Dto.CreateCardRequest](body)
 
-            card match {
+            val result = card match {
                 case Xor.Left(_) => BadRequest()
                 case Xor.Right(c) => {
                     cardService.createCard(c) match {
                         case Left(e) => decideStatus(e)
-                        case Right(_) => Created()
+                        case Right(r) => Created(r.asJson.noSpaces)
                     }
                 }
 
             }
+
+            result
 
 
             //            val xy = xx.body.runLog.run.head.decodeUtf8.right.getOrElse("FAIL")

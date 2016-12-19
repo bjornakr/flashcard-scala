@@ -115,11 +115,20 @@ class CardUseCases {
     def createCard(request: Dto.CreateCardRequest): Either[SystemMessage, Dto.CardResponse] =
         CardRequestMapper(request) match {
             case Left(e) => Left(e)
-            case Right(card) =>
-                val savedCard = cardRepository.save(card)
+            case Right(card) => {
+                val future = cardRepository.save(card)
 
+                Await.ready(future, DurationInt(3).seconds).value.get match {
+                    case Success(n) => getWithUuid(card.id)
+                    case Failure(e) => {
+                        logger.error("CardDao.createCard", e)
+                        //logger.error(s"${e.getClass.getCanonicalName}: ${e.getMessage}")
+                        Left(SystemMessages.GeneralError(e.getMessage))
+                    }
+                }
+            }
 
-                Left(SystemMessages.GeneralError("Zok"))
+//            Left(SystemMessages.GeneralError("Zok"))
             // Right(CardResponseMapper(savedCard))
 
         }
