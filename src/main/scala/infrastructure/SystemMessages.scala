@@ -23,7 +23,4 @@ object SystemMessages {
         def message = "Parameter \"" + field + "\" cannot be empty."
     }
 
-    case class CannotBeNull(field: String) extends SystemMessage {
-        def message = "Parameter \"" + field + "\" cannot be NULL."
-    }
 }

@@ -17,6 +17,7 @@ object TestApi {
     def decideStatus(message: SystemMessage): Task[Response] = {
         message match {
             case SystemMessages.InvalidIdFormat(_) => BadRequest(message.message)
+            case SystemMessages.CannotBeEmpty(_) => BadRequest(message.message)
             case _ => NotFound(message.message)
         }
     }
@@ -61,14 +62,7 @@ object TestApi {
                 }
 
             }
-
             result
-
-
-            //            val xy = xx.body.runLog.run.head.decodeUtf8.right.getOrElse("FAIL")
-
-
-            //            BadRequest(body)
         }
     }
 }

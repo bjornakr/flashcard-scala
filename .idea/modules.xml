@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/flashcard.iml" filepath="$PROJECT_DIR$/.idea/modules/flashcard.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/flashcard-build.iml" filepath="$PROJECT_DIR$/.idea/modules/flashcard-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/flashcard-scala.iml" filepath="$PROJECT_DIR$/.idea/modules/flashcard-scala.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/flashcard-scala-build.iml" filepath="$PROJECT_DIR$/.idea/modules/flashcard-scala-build.iml" />
     </modules>
   </component>
 </project>

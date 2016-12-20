@@ -122,15 +122,11 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
                 val expectedResponse = Dto.CardResponse(card1.id.toString, card1.front.text, card1.back.text, card1.back.exampleOfUse)
 
                 assert(cardResponse == expectedResponse)
-
-//                assert(card.id == "00000000-0000-0000-0000-000000000001")
-
             }
         }
     }
 
     "POST card" when {
-        val uri = baseUri
 
         "valid card" should {
             val body = toBody("{ \"front\": \"A\", \"back\": \"B\", \"exampleOfUse\": \"C\" }")
@@ -144,18 +140,27 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
                 val request = Request(Method.POST, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
                 val response = client.toHttpService.run(request).run
                 val responseBody = extractBody(response)
-                assert(responseBody == "biff")
+                val cardResponse = decode[Dto.CardResponse](responseBody).valueOr(e => throw e)
+
+                val expectedRespone = Dto.CardResponse(cardResponse.id, "A", "B", "C")
+                assert(cardResponse == expectedRespone)
             }
         }
         "front text is missing" should {
             "give 400 Bad Request" in {
-                val uri = baseUri
-                val eb = EmptyBody
-                val byteV: ByteVector = ByteVector.encodeUtf8("Hei hei hei hei").right.getOrElse(ByteVector(0))
-                val body = EmptyBody // Process.emit(byteV)
-                val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, body) //.withBody("Hei!")
-                val response = client.toHttpService.run(request).withBody("Hei!").run
+                val body = toBody("{ \"back\": \"B\", \"exampleOfUse\": \"C\" }")
+                val request = Request(Method.POST, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
                 assert(response.status == Status.BadRequest)
+            }
+
+            "describe error in body" in {
+                val body = toBody("{ \"back\": \"B\", \"exampleOfUse\": \"C\" }")
+                val request = Request(Method.POST, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
+                val responseBody = extractBody(response)
+                assert(responseBody == SystemMessages.CannotBeEmpty("front").message)
+
             }
         }
     }
