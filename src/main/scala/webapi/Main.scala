@@ -1,4 +1,4 @@
-package presentation
+package webapi
 
 import org.http4s.server.Server
 import org.http4s.server.blaze._

@@ -43,24 +43,24 @@ object CardDao {
     // extends TableQuery(new CardTable(_)) {
     type NoOfRowsAffected = Int
 
-    val cards = TableQuery(new CardTable(_))
+    val cardsTable = TableQuery(new CardTable(_))
 
     val db = Dataxase.db
 
     def getAll: Future[Seq[Card]] =
-        db.run(cards.result).map(_.map(_.toDomain))
+        db.run(cardsTable.result).map(_.map(_.toDomain))
 
     def getById(id: UUID): Future[Option[Card]] =
-        db.run(cards.filter(_.id === id.toString).result).map(_.headOption.map(_.toDomain))
+        db.run(cardsTable.filter(_.id === id.toString).result).map(_.headOption.map(_.toDomain))
 
-    def save(card: Card): Future[NoOfRowsAffected] = {
-        val dto = CardDto(card.id.toString, card.front.text, card.back.text, card.back.exampleOfUse,
-            card.stats.wins.get, card.stats.losses.get, card.stats.winStreak.get)
-        //        db.run(this.returning(this.map(_.id)) += dto)
-        db.run(cards += dto)
-        //        val rug = (this returning this.map(_.*)) += dto
-        //        db.run(rug)
+    def save(card: Card): Future[NoOfRowsAffected] =
+        db.run(cardsTable += cardToDto(card))
+
+    def saveAll(cards: Seq[Card]): Future[Option[NoOfRowsAffected]] = {
+        val dtos = cards.map(cardToDto(_))
+        db.run(cardsTable ++= dtos)
     }
+
 
 //    def update(card: Card): Future[Card] = {
 //        val dto = cardToDto(card)

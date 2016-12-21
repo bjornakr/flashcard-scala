@@ -1,4 +1,4 @@
-package presentation
+package webapi
 
 import application.Dto
 import cats.data.Xor
@@ -26,15 +26,15 @@ object TestApi {
         case GET -> Root / "hello" / name =>
             Ok(s"Hello, $name")
 
-        case GET -> Root / "cards" / "" => {
-            Ok()
-            //            val result = cardService.getAll(id)
-            //            result match {
-            //                case Left(e) => decideStatus(e)
-            //                case Right(r) => {
-            //                    Ok()
-            //                }
-            //            }
+        case GET -> Root / "cards" => {
+            val result = cardService.getAll
+            result match {
+                case Left(e) => decideStatus(e)
+                case Right(r) => {
+                    val jsonResult = r.asJson.noSpaces
+                    Ok(jsonResult)
+                }
+            }
         }
 
         case GET -> Root / "cards" / id => {

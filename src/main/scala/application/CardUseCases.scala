@@ -17,6 +17,19 @@ class CardUseCases {
     val cardRepository = CardDao
     val logger = Logger[CardUseCases]
 
+
+    def getAll: Either[SystemMessage, Seq[Dto.CardResponse]] = {
+        val future = CardDao.getAll
+        Await.ready(future, DurationInt(3).seconds).value.get match {
+            case Success(t) => Right(t.map(CardResponseMapper(_)))
+            case Failure(e) => {
+                logger.error("CardDao.getAll", e)
+                Left(SystemMessages.GeneralError(e.getMessage))
+            }
+        }
+    }
+
+
     def get(id: String): Either[SystemMessage, Dto.CardResponse] = {
         //        parseUUID(id) match {
         //            case Left(a) => Future(Left(a))
@@ -122,15 +135,10 @@ class CardUseCases {
                     case Success(n) => getWithUuid(card.id)
                     case Failure(e) => {
                         logger.error("CardDao.createCard", e)
-                        //logger.error(s"${e.getClass.getCanonicalName}: ${e.getMessage}")
                         Left(SystemMessages.GeneralError(e.getMessage))
                     }
                 }
             }
-
-//            Left(SystemMessages.GeneralError("Zok"))
-            // Right(CardResponseMapper(savedCard))
-
         }
 
 

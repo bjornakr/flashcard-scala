@@ -3,7 +3,7 @@ package integration
 
 import java.util.UUID
 
-import application.Dto
+import application.{CardResponseMapper, Dto}
 import domain._
 import infrastructure.SystemMessages
 import io.circe.generic.auto._
@@ -12,10 +12,11 @@ import org.http4s._
 import org.http4s.client.blaze.PooledHttp1Client
 import org.http4s.dsl._
 import org.scalatest.{BeforeAndAfterAll, WordSpec}
-import presentation.Main
+import webapi.Main
 import repository.{CardDao, CardTable, Dataxase}
 import scodec.bits.ByteVector
 import slick.driver.H2Driver.api._
+
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
@@ -30,6 +31,14 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
             new Front("Front 1") {}, new Back("Back 1", Some("ExampleOfUse 1")) {}, stats) {}
     }
 
+    val card2 = {
+        val stats = new CardStatistics(None, new Wins(0) {}, new Losses(0) {}, new WinStreak(0) {}) {}
+        new Card(UUID.fromString("00000000-0000-0000-0000-000000000002"),
+            new Front("Front 2") {}, new Back("Back 2", Some("ExampleOfUse 2")) {}, stats) {}
+    }
+
+    val allCards = List(card1, card2)
+
     override def beforeAll {
         def createInMemoryDatabase = {
             val db = Dataxase.db
@@ -40,7 +49,7 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
         }
 
         def insertCards = {
-            val createPromise = CardDao.save(card1)
+            val createPromise = CardDao.saveAll(allCards)
             Await.result(createPromise, Duration.Inf)
         }
 
@@ -63,6 +72,24 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
         val result = helloJames.run
         assert(result == "Hello, James")
     }
+
+    "GET cards" should {
+        val request = Request(Method.GET, baseUri)
+        def response = client.toHttpService.run(request).run
+
+        "give status 200 OK" in {
+            assert(response.status == Status.Ok)
+        }
+
+        "give all cards" in {
+            val body = extractBody(response)
+            val cards = decode[Seq[Dto.CardResponse]](body).valueOr(e => throw e)
+            assert(cards.length == 2)
+            assert(cards.contains(CardResponseMapper(card1)))
+            assert(cards.contains(CardResponseMapper(card2)))
+        }
+    }
+
 
     "GET cards/<id>" when {
         "malformed uuid" should {
