@@ -10,7 +10,7 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
 
-case class CardDto(id: String, front: String, back: String, exampleOfUse: String,
+case class CardDto(id: String, front: String, back: String, exampleOfUse: Option[String],
                    wins: Int, losses: Int, winStreak: Int) {
     val toDomain = {
         val stats = new CardStatistics(None, Wins(wins), Losses(losses), WinStreak(winStreak)) {}
@@ -26,7 +26,7 @@ class CardTable(tag: Tag) extends Table[CardDto](tag, "cards") {
 
     def back = column[String]("back")
 
-    def exampleOfUse = column[String]("example_of_use")
+    def exampleOfUse = column[Option[String]]("example_of_use")
 
     //    def lastVisited = column[Option[ZonedDateTime]]("last_visited")
     def wins = column[Int]("wins")

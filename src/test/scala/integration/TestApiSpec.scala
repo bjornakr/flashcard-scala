@@ -27,7 +27,7 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
     val card1 = {
         val stats = new CardStatistics(None, new Wins(0) {}, new Losses(0) {}, new WinStreak(0) {}) {}
         new Card(UUID.fromString("00000000-0000-0000-0000-000000000001"),
-            new Front("Front 1") {}, new Back("Back 1", "ExampleOfUse 1") {}, stats) {}
+            new Front("Front 1") {}, new Back("Back 1", Some("ExampleOfUse 1")) {}, stats) {}
     }
 
     override def beforeAll {
@@ -125,7 +125,7 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
                 val responseBody = extractBody(response)
                 val cardResponse = decode[Dto.CardResponse](responseBody).valueOr(e => throw e)
 
-                val expectedRespone = Dto.CardResponse(cardResponse.id, "A", "B", "C")
+                val expectedRespone = Dto.CardResponse(cardResponse.id, "A", "B", Some("C"))
                 assert(cardResponse == expectedRespone)
             }
         }

@@ -19,10 +19,10 @@ object Front {
 
 
 // NB! Do not instantiate directly
-abstract case class Back(text: String, exampleOfUse: String)
+abstract case class Back(text: String, exampleOfUse: Option[String])
 
 object Back {
-    def apply(text: String, exampleOfUse: String): Either[SystemMessage, Back] =
+    def apply(text: String, exampleOfUse: Option[String]): Either[SystemMessage, Back] =
         text.trim match {
             case "" => Left(CannotBeEmpty("back"))
             case t => Right(new Back(t, exampleOfUse) {})

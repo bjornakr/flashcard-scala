@@ -8,17 +8,18 @@ import infrastructure.SystemMessages
 import org.scalatest.WordSpec
 
 class CardSpec extends WordSpec {
+    val uuid = UUID.randomUUID()
+
     val validFrontText = "front"
     val validBackText = "back"
+
     val exampleOfUseText = "example"
-
     val validFront = new Front(validFrontText) {}
-    val validBack = new Back(validBackText, exampleOfUseText) {}
 
+    val validBack = new Back(validBackText, Some(exampleOfUseText)) {}
     val initStats = new CardStatistics(None, Wins(0), Losses(0), WinStreak(0)) {}
-    val untouchedCard = new Card(uuid, validFront, validBack, initStats) {}
 
-    val uuid = UUID.randomUUID()
+    val untouchedCard = new Card(uuid, validFront, validBack, initStats) {}
     val now = ZonedDateTime.now
 
     def validateEither[E, A](ea: Either[E, A])(f: A => Unit): Unit = {
@@ -45,7 +46,7 @@ class CardSpec extends WordSpec {
     "back" when {
         "text is empty" should {
             "give error" in {
-                val result = Back("   ", exampleOfUseText)
+                val result = Back("   ", Some(exampleOfUseText))
                 assert(result == Left(SystemMessages.CannotBeEmpty("back")))
             }
         }
@@ -53,20 +54,20 @@ class CardSpec extends WordSpec {
         "text has content" when {
             "exampleOfUse is empty" should {
                 "give valid back" in {
-                    val result = Back(validBackText, "")
+                    val result = Back(validBackText, None)
                     validateEither(result)(a => {
                         assert(a.text == validBackText)
-                        assert(a.exampleOfUse == "")
+                        assert(a.exampleOfUse == None)
                     })
                 }
             }
 
             "exampleOfUse has content" should {
                 "give valid back" in {
-                    val result = Back(validBackText, exampleOfUseText)
+                    val result = Back(validBackText, Some(exampleOfUseText))
                     validateEither(result)(a => {
                         assert(a.text == validBackText)
-                        assert(a.exampleOfUse == exampleOfUseText)
+                        assert(a.exampleOfUse == Some(exampleOfUseText))
                     })
                 }
             }
@@ -76,10 +77,10 @@ class CardSpec extends WordSpec {
 
     "Card" should {
         "return valid Card" in {
-            val card = Card(new Front(validFrontText) {}, new Back(validBackText, exampleOfUseText) {})
+            val card = Card(new Front(validFrontText) {}, new Back(validBackText, Some(exampleOfUseText)) {})
             assert(card.front.text == validFrontText)
             assert(card.back.text == validBackText)
-            assert(card.back.exampleOfUse == exampleOfUseText)
+            assert(card.back.exampleOfUse == Some(exampleOfUseText))
             assert(card.stats.wins.get == 0)
             assert(card.stats.losses.get == 0)
         }
