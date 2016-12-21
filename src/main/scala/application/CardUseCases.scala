@@ -36,14 +36,14 @@ class CardUseCases {
         //            case Right(uuid) => getWithUuid(uuid)
         //        }
         for {
-            uuid <- parseUUID(id).right
+            uuid <- parseUuid(id).right
             card <- getWithUuid(uuid).right
         } yield card
     }
 
 
     def getFuture(id: String): Future[Either[SystemMessage, Dto.CardResponse]] = {
-        parseUUID(id) match {
+        parseUuid(id) match {
             case Left(a) => Future(Left(a))
             case Right(uuid) => getWithUuidFuture(uuid)
         }
@@ -163,6 +163,29 @@ class CardUseCases {
     //        }
     //    }
 
+    def delete(id: String): Either[SystemMessage, Unit] = {
+        for {
+            uuid <- parseUuid(id).right
+            result <- deleteWithUuid(uuid).right
+        } yield result
+    }
+
+    def deleteWithUuid(id: UUID): Either[SystemMessage, Unit] = {
+        val future = CardDao.delete(id)
+
+        Await.ready(future, DurationInt(3).seconds).value.get match {
+            case Success(affectedRowsCount) => {
+                if (affectedRowsCount > 0) Right()
+                else Left(SystemMessages.InvalidId("Card", id))
+            }
+            case Failure(e) => {
+                logger.error("CardDao.delete", e)
+                Left(SystemMessages.GeneralError(e.getMessage))
+            }
+        }
+    }
+
+
     private def getWithUuidFuture(id: UUID): Future[Either[SystemMessage, Dto.CardResponse]] = {
         val future = CardDao.getById(id).map {
             case None => Left(SystemMessages.InvalidId("Card", id))
@@ -201,7 +224,7 @@ class CardUseCases {
         //        }
     }
 
-    private def parseUUID(id: String): Either[SystemMessage, UUID] =
+    private def parseUuid(id: String): Either[SystemMessage, UUID] =
         try {
             Right(UUID.fromString(id))
         }

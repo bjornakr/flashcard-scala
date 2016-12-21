@@ -41,7 +41,7 @@ class CardTable(tag: Tag) extends Table[CardDto](tag, "cards") {
 
 object CardDao {
     // extends TableQuery(new CardTable(_)) {
-    type NoOfRowsAffected = Int
+    type AffectedRowsCount = Int
 
     val cardsTable = TableQuery(new CardTable(_))
 
@@ -53,14 +53,18 @@ object CardDao {
     def getById(id: UUID): Future[Option[Card]] =
         db.run(cardsTable.filter(_.id === id.toString).result).map(_.headOption.map(_.toDomain))
 
-    def save(card: Card): Future[NoOfRowsAffected] =
+    def save(card: Card): Future[AffectedRowsCount] =
         db.run(cardsTable += cardToDto(card))
 
-    def saveAll(cards: Seq[Card]): Future[Option[NoOfRowsAffected]] = {
+    def saveAll(cards: Seq[Card]): Future[Option[AffectedRowsCount]] = {
         val dtos = cards.map(cardToDto(_))
         db.run(cardsTable ++= dtos)
     }
 
+    def delete(uuid: UUID): Future[AffectedRowsCount] = {
+        val q = cardsTable.filter(_.id === uuid.toString)
+        db.run(q.delete)
+    }
 
 //    def update(card: Card): Future[Card] = {
 //        val dto = cardToDto(card)

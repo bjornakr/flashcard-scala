@@ -64,5 +64,13 @@ object TestApi {
             }
             result
         }
+
+        case DELETE -> Root / "cards" / id => {
+            val result = cardService.delete(id)
+            result match {
+                case Left(e) => decideStatus(e)
+                case Right(_) => NoContent()
+            }
+        }
     }
 }

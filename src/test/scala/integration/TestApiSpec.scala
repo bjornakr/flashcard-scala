@@ -190,6 +190,27 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
         }
     }
 
+    "DELETE card" when {
+        "valid id" should {
+            "give 204 No Content" in {
+                val uri = baseUri / "00000000-0000-0000-0000-000000000001"
+                val request = Request(Method.DELETE, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
+                def response = client.toHttpService.run(request).run
+                assert(response.status == Status.NoContent)
+            }
+        }
+
+        "invalid id" should {
+            "give 404 Not Found" in {
+                val uri = baseUri / "00000000-0000-0000-0000-000000009999"
+                val request = Request(Method.DELETE, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
+                def response = client.toHttpService.run(request).run
+                assert(response.status == Status.NoContent)
+
+            }
+        }
+    }
+
     def toBody(body: String): EntityBody = {
         val byteV: ByteVector = ByteVector.encodeUtf8(body).right.getOrElse(ByteVector(0))
         scalaz.stream.Process.emit(byteV)
