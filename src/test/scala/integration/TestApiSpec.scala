@@ -198,14 +198,18 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
                 def response = client.toHttpService.run(request).run
                 assert(response.status == Status.NoContent)
             }
+
+            "delete card" in {
+
+            }
         }
 
         "invalid id" should {
             "give 404 Not Found" in {
-                val uri = baseUri / "00000000-0000-0000-0000-000000009999"
+                val uri = baseUri / "99999999-9999-9999-9999-999999999999"
                 val request = Request(Method.DELETE, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
                 def response = client.toHttpService.run(request).run
-                assert(response.status == Status.NoContent)
+                assert(response.status == Status.NotFound)
 
             }
         }

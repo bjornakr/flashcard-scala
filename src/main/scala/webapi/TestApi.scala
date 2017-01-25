@@ -16,6 +16,7 @@ object TestApi {
 
     def decideStatus(message: SystemMessage): Task[Response] = {
         message match {
+            case SystemMessages.InvalidId(_, _) => NotFound(message.message)
             case SystemMessages.InvalidIdFormat(_) => BadRequest(message.message)
             case SystemMessages.CannotBeEmpty(_) => BadRequest(message.message)
             case _ => NotFound(message.message)
