@@ -39,13 +39,15 @@ class CardTable(tag: Tag) extends Table[CardDto](tag, "cards") {
 }
 
 
-object CardDao {
+class CardDao(db: Database) {
     // extends TableQuery(new CardTable(_)) {
     type AffectedRowsCount = Int
 
-    val cardsTable = TableQuery(new CardTable(_))
+//    val cardsTable = TableQuery(new CardTable(_))
+    val cardsTable = TableQuery[CardTable]
 
-    val db = Dataxase.db
+
+    //    val db = Dataxase.db
 
     def getAll: Future[Seq[Card]] =
         db.run(cardsTable.result).map(_.map(_.toDomain))

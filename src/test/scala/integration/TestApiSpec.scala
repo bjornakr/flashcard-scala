@@ -3,7 +3,8 @@ package integration
 
 import java.util.UUID
 
-import application.{CardResponseMapper, Dto}
+import application.{CardResponseMapper, CardUseCases, Dto}
+import com.typesafe.scalalogging.Logger
 import domain._
 import infrastructure.SystemMessages
 import io.circe.generic.auto._
@@ -11,19 +12,30 @@ import io.circe.parser._
 import org.http4s._
 import org.http4s.client.blaze.PooledHttp1Client
 import org.http4s.dsl._
-import org.scalatest.{BeforeAndAfterAll, WordSpec}
-import webapi.Main
+import org.scalamock.clazz.Mock
+import org.scalamock.scalatest.MockFactory
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, WordSpec}
+import org.slf4j.{Marker, Logger => UnderlyingLogger}
+import webapi.{Main, TestApi}
 import repository.{CardDao, CardTable, Dataxase}
 import scodec.bits.ByteVector
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.reflect.macros.whitebox
 
-class TestApiSpec extends WordSpec with BeforeAndAfterAll {
+class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll with MockFactory {
 
-    val server = Main.createServer
+    val underlyingLoggerMock = mock[UnderlyingLogger]
+
+
+    val db = Database.forConfig("h2mem1") //forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false", driver = "org.h2.Driver")
+    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
+    val server = main.createServer
     val client = PooledHttp1Client()
+    val cardDao = new CardDao(db)
 
     val card1 = {
         val stats = new CardStatistics(None, new Wins(0) {}, new Losses(0) {}, new WinStreak(0) {}) {}
@@ -39,27 +51,63 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
 
     val allCards = List(card1, card2)
 
-    override def beforeAll {
-        def createInMemoryDatabase = {
-            val db = Dataxase.db
-            val cards = TableQuery[CardTable]
-            val setup = slick.dbio.DBIO.seq(cards.schema.create)
-            val dbSetupFuture = db.run(setup)
-            Await.result(dbSetupFuture, Duration.Inf)
-        }
 
-        def insertCards = {
-            val createPromise = CardDao.saveAll(allCards)
-            Await.result(createPromise, Duration.Inf)
-        }
 
-        createInMemoryDatabase
-        insertCards
+
+    def clearDatabase() = {
+//        val db = Database.forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false", driver = "org.h2.Driver")
+        val cards = TableQuery[CardTable]
+        // val setup = slick.dbio.DBIO.seq(sqlu"DROP TABLE IF EXISTS CARDS") //#${cards.baseTableRow.tableName}")
+        val setup = slick.dbio.DBIO.seq(cards.schema.drop)
+        val dbSetupFuture = db.run(setup)
+        Await.ready(dbSetupFuture, Duration.Inf).value.get
+        Console.println("DELETED")
+    }
+
+    def createInMemoryDatabase() = {
+//        val db = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
+        val cards = TableQuery[CardTable]
+        Console.println("CREATE TABLE " + cards.baseTableRow.tableName)
+        val setup = slick.dbio.DBIO.seq(cards.schema.create)
+        val dbSetupFuture = db.run(setup)
+        Await.ready(dbSetupFuture, Duration.Inf).value.get
+        Console.println("Done")
+
+        //        val setup2 = slick.dbio.DBIO.seq(sqlu"DROP TABLE IF EXISTS CARDS")
+
+
+
+//        Console.println("Del " + cards.baseTableRow.tableName)
+//        val dbSetupFuture2 = db.run(setup2)
+//        Await.result(dbSetupFuture2, Duration.Inf)
+
+        val holy = slick.dbio.DBIO.seq(sql"SHOW DATABASES;".as[String])
+        val holyFuture = db.run(holy)
+        holyFuture.onSuccess{ case s => println(s"Redult: $s")}
+
+        val hr = Await.ready(holyFuture, Duration.Inf).value.get
+        println(hr)
+
+    }
+
+    def insertCards() = {
+        Console.println("Ins cowrd")
+        val createPromise = cardDao.saveAll(allCards)
+        Await.result(createPromise, Duration.Inf)
+        Console.println("Ins comp")
+    }
+
+
+    before {
+        clearDatabase()
+        createInMemoryDatabase()
+        insertCards()
     }
 
     override def afterAll {
         server.shutdownNow()
         client.shutdownNow()
+        Database.forConfig("h2mem1").close()
     }
 
     def extractBody(r: Response): String =
@@ -72,6 +120,36 @@ class TestApiSpec extends WordSpec with BeforeAndAfterAll {
         val result = helloJames.run
         assert(result == "Hello, James")
     }
+
+
+    "Any request" when {
+        "database has errors" should {
+            "give 500 Internal Server Error" in {
+                clearDatabase()
+//                val cards = TableQuery[CardTable]
+//                val setup = slick.dbio.DBIO.seq(cards.schema.drop)
+//                val dbSetupFuture = db.run(setup)
+//                Await.result(dbSetupFuture, Duration.Inf)
+
+
+                val request = Request(Method.GET, baseUri)
+                def response = client.toHttpService.run(request).run
+
+                assert(response.status == Status.InternalServerError)
+            }
+
+            "log errors" in {
+                (underlyingLoggerMock.isErrorEnabled: () => Boolean).expects().returning(true)
+                (underlyingLoggerMock.error(_: String, _: Throwable)).expects(*, *).once()
+
+                clearDatabase()
+                val request = Request(Method.GET, baseUri)
+                client.toHttpService.run(request).run
+
+            }
+        }
+    }
+
 
     "GET cards" should {
         val request = Request(Method.GET, baseUri)

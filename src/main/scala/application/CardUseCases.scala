@@ -13,18 +13,17 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 
-class CardUseCases {
-    val cardRepository = CardDao
-    val logger = Logger[CardUseCases]
+class CardUseCases(logger: Logger, cardDao: CardDao) {
+    // val logger = Logger[CardUseCases]
 
 
     def getAll: Either[SystemMessage, Seq[Dto.CardResponse]] = {
-        val future = CardDao.getAll
+        val future = cardDao.getAll
         Await.ready(future, DurationInt(3).seconds).value.get match {
             case Success(t) => Right(t.map(CardResponseMapper(_)))
             case Failure(e) => {
                 logger.error("CardDao.getAll", e)
-                Left(SystemMessages.GeneralError(e.getMessage))
+                Left(SystemMessages.DatabaseError(e.getMessage))
             }
         }
     }
@@ -129,7 +128,7 @@ class CardUseCases {
         CardRequestMapper(request) match {
             case Left(e) => Left(e)
             case Right(card) => {
-                val future = cardRepository.save(card)
+                val future = cardDao.save(card)
 
                 Await.ready(future, DurationInt(3).seconds).value.get match {
                     case Success(n) => getWithUuid(card.id)
@@ -171,7 +170,7 @@ class CardUseCases {
     }
 
     def deleteWithUuid(id: UUID): Either[SystemMessage, Unit] = {
-        val future = CardDao.delete(id)
+        val future = cardDao.delete(id)
 
         Await.ready(future, DurationInt(3).seconds).value.get match {
             case Success(affectedRowsCount) => {
@@ -187,7 +186,7 @@ class CardUseCases {
 
 
     private def getWithUuidFuture(id: UUID): Future[Either[SystemMessage, Dto.CardResponse]] = {
-        val future = CardDao.getById(id).map {
+        val future = cardDao.getById(id).map {
             case None => Left(SystemMessages.InvalidId("Card", id))
             case Some(c) => Right(CardResponseMapper(c))
         }
@@ -201,7 +200,7 @@ class CardUseCases {
     }
 
     private def getWithUuid(id: UUID): Either[SystemMessage, Dto.CardResponse] = {
-        val future = CardDao.getById(id).map {
+        val future = cardDao.getById(id).map {
             case None => Left(SystemMessages.InvalidId("Card", id))
             case Some(c) => Right(CardResponseMapper(c))
         }

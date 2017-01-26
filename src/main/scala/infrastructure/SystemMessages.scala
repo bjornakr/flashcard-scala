@@ -23,4 +23,8 @@ object SystemMessages {
         def message = "Parameter \"" + field + "\" cannot be empty."
     }
 
+    case class DatabaseError(errorMessage: String) extends SystemMessage {
+        def message = errorMessage
+    }
+
 }

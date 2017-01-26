@@ -7,6 +7,7 @@ lazy val http4sVersion = "0.14.7"
 
 libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.0"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
+libraryDependencies += "org.scalamock" %% "scalamock-scalatest-support" % "3.4.2" % Test
 
 libraryDependencies += "ch.qos.logback" %  "logback-classic" % "1.1.7" //exclude("org.slf4j.impl", "StaticLoggerBinder")
 libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"

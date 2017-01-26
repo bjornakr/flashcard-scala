@@ -1,6 +1,6 @@
 package webapi
 
-import application.Dto
+import application.{CardUseCases, Dto}
 import cats.data.Xor
 import infrastructure.{SystemMessage, SystemMessages}
 import io.circe.generic.auto._
@@ -11,14 +11,14 @@ import org.http4s.dsl.{Root, _}
 
 import scalaz.concurrent.Task
 
-object TestApi {
-    val cardService = new application.CardUseCases
+class TestApi(cardService: CardUseCases) {
 
     def decideStatus(message: SystemMessage): Task[Response] = {
         message match {
             case SystemMessages.InvalidId(_, _) => NotFound(message.message)
             case SystemMessages.InvalidIdFormat(_) => BadRequest(message.message)
             case SystemMessages.CannotBeEmpty(_) => BadRequest(message.message)
+            case SystemMessages.DatabaseError(_) => InternalServerError()
             case _ => NotFound(message.message)
         }
     }
