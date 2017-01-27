@@ -6,16 +6,14 @@ import java.util.UUID
 import com.typesafe.scalalogging.Logger
 import domain.Card
 import infrastructure.{SystemMessage, SystemMessages}
-import repository.{CardDao, CardRepository}
+import repository.CardDao
 
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 class CardUseCases(logger: Logger, cardDao: CardDao) {
-    // val logger = Logger[CardUseCases]
-
 
     def getAll: Either[SystemMessage, Seq[Dto.CardResponse]] = {
         val future = cardDao.getAll
@@ -41,31 +39,31 @@ class CardUseCases(logger: Logger, cardDao: CardDao) {
     }
 
 
-    def getFuture(id: String): Future[Either[SystemMessage, Dto.CardResponse]] = {
-        parseUuid(id) match {
-            case Left(a) => Future(Left(a))
-            case Right(uuid) => getWithUuidFuture(uuid)
-        }
-    }
-
-    //    def win(id: String): Future[Either[SystemMessage, Dto.CardResponse]] = {
-    //        parseUUID(id) match {
+    //    def getFuture(id: String): Future[Either[SystemMessage, Dto.CardResponse]] = {
+    //        parseUuid(id) match {
     //            case Left(a) => Future(Left(a))
-    //            case Right(uuid) => winWithUuid(uuid)
+    //            case Right(uuid) => getWithUuidFuture(uuid)
     //        }
-    //
-    //
-    //        //        for {
-    //        //            uuid <- parseUUID(id).right
-    //        //            c1 <- winWithUuid(uuid).right
-    //        //        } yield c1
-    //
-    //
-    //        //        card match {
-    //        //            case Some(c) => Right(CardResponseMapper(c))
-    //        //            case None => Left(SystemMessages.InvalidId("Card", id))
-    //        //        }
     //    }
+
+    def win(id: String): Either[SystemMessage, Dto.CardResponse] = {
+        parseUuid(id) match {
+            case Left(a) => Left(a)
+            case Right(uuid) => winWithUuid(uuid)
+        }
+
+
+        //        for {
+        //            uuid <- parseUUID(id).right
+        //            c1 <- winWithUuid(uuid).right
+        //        } yield c1
+
+
+        //        card match {
+        //            case Some(c) => Right(CardResponseMapper(c))
+        //            case None => Left(SystemMessages.InvalidId("Card", id))
+        //        }
+    }
 
 
     //    private def winwin(card: Card): Future[Either[SystemMessage, Dto.CardResponse]] = {
@@ -79,23 +77,63 @@ class CardUseCases(logger: Logger, cardDao: CardDao) {
     //        futUpd.map(card => Right(CardResponseMapper(card)))
     //    }
     //
-    //    private def winWithUuid(id: UUID): Future[Either[SystemMessage, Dto.CardResponse]] = {
-    //        val cardFut = cardRepository.getById(id)
-    //
-    //        val clux = cardFut.flatMap {
-    //            case None => Future(Left(SystemMessages.InvalidId("Card", id)))
-    //            case Some(card) => winwin(card)
-    //        }
-    //
-    //        clux.onFailure {
-    //            case e => {
-    //                logger.error("CardDao.findById", e)
-    //                Left(SystemMessages.GeneralError(e.getMessage))
-    //            }
-    //        }
-    //
-    //        clux
-    //    }
+    private def winWithUuid(id: UUID): Either[SystemMessage, Dto.CardResponse] = {
+        val future = cardDao.getById(id)
+
+//        future.map {
+//            case None => Left(SystemMessages.InvalidId("Card", id))
+//            case Some(card: Card) => {
+//                logger.info("Found card, intenting to save.")
+//                val c = card.win(ZonedDateTime.now)
+//                val updateFuture = cardDao.update(c)
+//
+//                updateFuture.onFailure { case e =>
+//                    logger.error("CardDao.update", e)
+//                    Left(SystemMessages.DatabaseError(e.getMessage))
+//                }
+//
+//                Right(CardResponseMapper(c))
+//            }
+//        }
+
+        Await.ready(future, DurationInt(3).seconds).value.get match {
+            case Success(cardOption) => cardOption match {
+                case None => Left(SystemMessages.InvalidId("Card", id))
+                case Some(card: Card) => {
+                    logger.info("Found card, intenting to save.")
+                    val c = card.win(ZonedDateTime.now)
+                    val updateFuture = cardDao.update(c)
+
+                    updateFuture.onFailure { case e =>
+                        logger.error("CardDao.update", e)
+                        Left(SystemMessages.DatabaseError(e.getMessage))
+                    }
+
+                    Right(CardResponseMapper(c))
+                }
+            }
+            case Failure(e) => {
+                logger.error("CardDao.getAll", e)
+                Left(SystemMessages.DatabaseError(e.getMessage))
+            }
+
+        }
+
+    }
+//        val clux = future.map {
+//            case None => Future(Left(SystemMessages.InvalidId("Card", id)))
+//            case Some(card) => winwin(card)
+//        }
+//
+//                        clux.onFailure {
+//                            case e => {
+//                                logger.error("CardDao.findById", e)
+//                                Left(SystemMessages.GeneralError(e.getMessage))
+//                            }
+//                        }
+//
+//                        clux
+//    }
 
 
     //    private def winWithUuid(id: UUID): Future[Either[SystemMessage, Dto.CardResponse]] = {
@@ -185,19 +223,19 @@ class CardUseCases(logger: Logger, cardDao: CardDao) {
     }
 
 
-    private def getWithUuidFuture(id: UUID): Future[Either[SystemMessage, Dto.CardResponse]] = {
-        val future = cardDao.getById(id).map {
-            case None => Left(SystemMessages.InvalidId("Card", id))
-            case Some(c) => Right(CardResponseMapper(c))
-        }
-        future.onFailure { case e =>
-            logger.error("CardDao.findById", e)
-            //logger.error(s"${e.getClass.getCanonicalName}: ${e.getMessage}")
-            Left(SystemMessages.GeneralError(e.getMessage))
-        }
-
-        future
-    }
+    //    private def getWithUuidFuture(id: UUID): Future[Either[SystemMessage, Dto.CardResponse]] = {
+    //        val future = cardDao.getById(id).map {
+    //            case None => Left(SystemMessages.InvalidId("Card", id))
+    //            case Some(c) => Right(CardResponseMapper(c))
+    //        }
+    //        future.onFailure { case e =>
+    //            logger.error("CardDao.findById", e)
+    //            //logger.error(s"${e.getClass.getCanonicalName}: ${e.getMessage}")
+    //            Left(SystemMessages.GeneralError(e.getMessage))
+    //        }
+    //
+    //        future
+    //    }
 
     private def getWithUuid(id: UUID): Either[SystemMessage, Dto.CardResponse] = {
         val future = cardDao.getById(id).map {

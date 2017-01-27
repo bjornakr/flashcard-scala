@@ -68,10 +68,11 @@ class CardDao(db: Database) {
         db.run(q.delete)
     }
 
-//    def update(card: Card): Future[Card] = {
-//        val dto = cardToDto(card)
-//        db.run(cards.update(dto))
-//    }
+    def update(card: Card): Future[AffectedRowsCount] = {
+        val dto = cardToDto(card)
+        val action = cardsTable.insertOrUpdate(dto)
+        db.run(action)
+    }
 
     private def cardToDto(card: Card): CardDto =
         CardDto(card.id.toString, card.front.text, card.back.text, card.back.exampleOfUse,
