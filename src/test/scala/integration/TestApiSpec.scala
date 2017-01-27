@@ -25,7 +25,8 @@ import scala.concurrent.duration.Duration
 
 class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll with MockFactory {
 
-    val underlyingLoggerMock = stub[UnderlyingLogger] // Using a mock logger to prevent real logging.
+    val underlyingLoggerMock = stub[UnderlyingLogger]
+    // Using a mock logger to prevent real logging.
     // val db = Database.forConfig("h2mem1")
     val db = Database.forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
     val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
@@ -46,8 +47,6 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
     }
 
     val allCards = List(card1, card2)
-
-
 
 
     def clearDatabase() = {
@@ -255,7 +254,7 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
             }
 
             "delete card" in {
-
+                assert(false)
             }
         }
 
@@ -266,6 +265,19 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
                 def response = client.toHttpService.run(request).run
                 assert(response.status == Status.NotFound)
 
+            }
+        }
+    }
+
+    "PUT card" when {
+        "valid card" should {
+            "give 200 Ok" in {
+                val body = toBody(s"""{ "id": "${card1.id.toString}", "front": "Front 1 mod", "back": "Back 1 mod"""")
+//                val card1mod = new Card(UUID.fromString("00000000-0000-0000-0000-000000000001"),
+//                    new Front("Front 1 modified") {}, new Back("Back 1 modified", Some("ExampleOfUse 1 modified")) {}, card1.stats) {}
+                val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                lazy val response = client.toHttpService.run(request).run
+                assert(response.status == Status.Ok)
             }
         }
     }
