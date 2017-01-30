@@ -66,6 +66,23 @@ class TestApi(cardService: CardUseCases) {
             result
         }
 
+
+        case request@PUT -> Root / "cards" => {
+            val body = EntityDecoder.decodeString(request).run
+            val card = decode[Dto.UpdateCardRequest](body)
+
+            card match {
+                case Xor.Left(_) => BadRequest()
+                case Xor.Right(c) => {
+                    cardService.updateCard(c) match {
+                        case Left(e) => decideStatus(e)
+                        case Right(r) => Ok(r)
+                    }
+
+                }
+            }
+        }
+
         case DELETE -> Root / "cards" / id => {
             val result = cardService.delete(id)
             result match {

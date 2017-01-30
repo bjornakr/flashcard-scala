@@ -1,11 +1,12 @@
 package application
 
 import domain.{Back, Card, Front}
-import infrastructure.{SystemMessage, SystemMessages}
+import infrastructure.SystemMessage
 
-object CardRequestMapper {
-    def apply(request: Dto.CardRequest): Either[SystemMessage, Card] =
+object UpdateCardRequestMapper {
+    def apply(request: Dto.UpdateCardRequest): Either[SystemMessage, Card] =
         for {
+            id <- UuidParser(request.id)
             front <- Front(request.front.getOrElse("")).right
             back <- Back(request.back.getOrElse(""), request.exampleOfUse).right
         } yield Card(front, back)

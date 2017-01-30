@@ -68,6 +68,10 @@ object Card {
         val initStats = new CardStatistics(None, Wins(0), Losses(0), WinStreak(0)) {}
         new Card(UUID.randomUUID(), front, back, initStats) {}
     }
+
+    def updateFaces(orig: Card, updated: Card): Card = {
+        new Card(orig.id, updated.front, updated.back, orig.stats) {}
+    }
 }
 
 object PracticeDeck {
