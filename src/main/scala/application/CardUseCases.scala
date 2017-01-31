@@ -64,13 +64,8 @@ class CardUseCases(logger: Logger, cardDao: CardDao) {
     //    }
 
     def win(id: String): Either[SystemMessage, Dto.CardResponse] = {
-        parseUuid(id).right.map((uuid: UUID) => winWithUuid(uuid))
-        //        parseUuid(id) match {
-        //            case Left(a) => Left(a)
-        //            case Right(uuid) => winWithUuid(uuid)
-        //        }
-
-
+        parseUuid(id).right.flatMap(uuid => winWithUuid(uuid))
+    }
         //        for {
         //            uuid <- parseUUID(id).right
         //            c1 <- winWithUuid(uuid).right
@@ -81,7 +76,7 @@ class CardUseCases(logger: Logger, cardDao: CardDao) {
         //            case Some(c) => Right(CardResponseMapper(c))
         //            case None => Left(SystemMessages.InvalidId("Card", id))
         //        }
-    }
+//    }
 
 
     //    private def winwin(card: Card): Future[Either[SystemMessage, Dto.CardResponse]] = {
@@ -225,30 +220,6 @@ class CardUseCases(logger: Logger, cardDao: CardDao) {
             }
         }
 
-    def updateCard2(request: UpdateCardRequest): Either[SystemMessage, Dto.CardResponse] =
-        request.id match {
-            case None => Left(SystemMessages.CannotBeEmpty("id"))
-            case Some(id) => {
-                getWithStringId(id) match {
-                    case Left(e) => Left(e)
-                    case Right(card) => {
-                        CardRequestMapper(request).right.map(newCard => {
-                            val updatedCard = Card.updateFaces(card, newCard)
-                            val future = cardDao.update(updatedCard)
-
-                            val combo = Await.ready(future, DurationInt(3).seconds).value.get match {
-                                case Success(_) => Right(CardResponseMapper(updatedCard))
-                                case Failure(e) => {
-                                    logger.error("CardDao.updateCard", e)
-                                    Left(SystemMessages.GeneralError(e.getMessage))
-                                }
-                            }
-                            combo
-                        })
-                    }
-                }
-            }
-        }
 
     //    def updateCard2(request: UpdateCardRequest): Either[SystemMessage, Dto.CardResponse] =
     //        request.id match {

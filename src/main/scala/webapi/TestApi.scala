@@ -54,7 +54,7 @@ class TestApi(cardService: CardUseCases) {
             val card = decode[Dto.CreateCardRequest](body)
 
             val result = card match {
-                case Xor.Left(_) => BadRequest()
+                case Xor.Left(_) => BadRequest("Could not parse Card from body.")
                 case Xor.Right(c) => {
                     cardService.createCard(c) match {
                         case Left(e) => decideStatus(e)
@@ -72,11 +72,11 @@ class TestApi(cardService: CardUseCases) {
             val card = decode[Dto.UpdateCardRequest](body)
 
             card match {
-                case Xor.Left(_) => BadRequest()
+                case Xor.Left(_) => BadRequest("Could not parse Card from body.")
                 case Xor.Right(c) => {
                     cardService.updateCard(c) match {
                         case Left(e) => decideStatus(e)
-                        case Right(r) => Ok(r)
+                        case Right(r) => Ok(r.asJson.noSpaces)
                     }
 
                 }

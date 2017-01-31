@@ -242,6 +242,8 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
                 assert(responseBody == SystemMessages.CannotBeEmpty("back").message)
             }
         }
+
+        // TODO: Malformated body
     }
 
     "DELETE card" when {
@@ -272,14 +274,18 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
     "PUT card" when {
         "valid card" should {
             "give 200 Ok" in {
-                val body = toBody(s"""{ "id": "${card1.id.toString}", "front": "Front 1 mod", "back": "Back 1 mod"""")
+                val body = toBody(s"""{ "id": "${card1.id.toString}", "front": "Front 1 mod", "back": "Back 1 mod" }""")
 //                val card1mod = new Card(UUID.fromString("00000000-0000-0000-0000-000000000001"),
 //                    new Front("Front 1 modified") {}, new Back("Back 1 modified", Some("ExampleOfUse 1 modified")) {}, card1.stats) {}
                 val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
                 lazy val response = client.toHttpService.run(request).run
+                Console.println(extractBody(response))
+//                assert(extractBody(response) == "Zog!")
                 assert(response.status == Status.Ok)
             }
         }
+
+        // TODO: Malformated body, missing front, missing back
     }
 
     def toBody(body: String): EntityBody = {
