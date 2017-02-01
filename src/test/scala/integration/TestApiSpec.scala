@@ -12,6 +12,7 @@ import io.circe.parser._
 import org.http4s._
 import org.http4s.client.blaze.PooledHttp1Client
 import org.http4s.dsl._
+import org.http4s.server.Server
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, WordSpec}
 import org.slf4j.{Logger => UnderlyingLogger}
@@ -29,8 +30,8 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
     // Using a mock logger to prevent real logging.
     // val db = Database.forConfig("h2mem1")
     val db = Database.forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
-    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
-    val server = main.createServer
+//    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
+    var server: Server = null
     val client = PooledHttp1Client()
     val cardDao = new CardDao(db)
 
@@ -73,6 +74,13 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         clearDatabase()
         initDatabase()
         insertCards()
+        val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
+        server = main.createServer
+
+    }
+
+    after {
+        server.shutdownNow()
     }
 
     override def afterAll {
@@ -275,14 +283,49 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         "valid card" should {
             "give 200 Ok" in {
                 val body = toBody(s"""{ "id": "${card1.id.toString}", "front": "Front 1 mod", "back": "Back 1 mod" }""")
-//                val card1mod = new Card(UUID.fromString("00000000-0000-0000-0000-000000000001"),
-//                    new Front("Front 1 modified") {}, new Back("Back 1 modified", Some("ExampleOfUse 1 modified")) {}, card1.stats) {}
                 val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
                 lazy val response = client.toHttpService.run(request).run
-                Console.println(extractBody(response))
-//                assert(extractBody(response) == "Zog!")
                 assert(response.status == Status.Ok)
             }
+
+            // TODO: Return card in body
+        }
+
+        "card cannot be parsed from body" should {
+            "give 400 Bad Request" in {
+                assert(true)
+                val body = toBody("""{ "thisis": notacard }""")
+                val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
+                assert(response.status == Status.BadRequest)
+
+            }
+
+            "describe error in body" in {
+                val body = toBody("""{ "thisis": notacard }""")
+                val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
+                assert(response.status == Status.BadRequest)
+                val responseBody = extractBody(response)
+                assert(responseBody == "Could not parse Card from body.")
+            }
+        }
+
+        "front text is missing" should {
+            "give 400 Bad Request" in {
+                val body = toBody("""{ "thisis": notacard }""")
+                val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
+                assert(response.status == Status.BadRequest)
+
+            }
+//            "describe error in body" in {
+//                val body = toBody(s"""{ "id": "${card1.id.toString}", "back": "Back 1 mod" }""")
+//                val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+//                val response = client.toHttpService.run(request).run
+//                val responseBody = extractBody(response)
+//                assert(responseBody == SystemMessages.CannotBeEmpty("front").message)
+//            }
         }
 
         // TODO: Malformated body, missing front, missing back

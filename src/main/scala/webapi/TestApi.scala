@@ -78,7 +78,6 @@ class TestApi(cardService: CardUseCases) {
                         case Left(e) => decideStatus(e)
                         case Right(r) => Ok(r.asJson.noSpaces)
                     }
-
                 }
             }
         }

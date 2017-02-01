@@ -3,6 +3,7 @@ package application
 import domain.{Back, Card, Front}
 import infrastructure.SystemMessage
 
+// TODO: I suspect this is not used? Delete.
 object UpdateCardRequestMapper {
     def apply(request: Dto.UpdateCardRequest): Either[SystemMessage, Card] =
         for {
