@@ -12,7 +12,6 @@ import io.circe.parser._
 import org.http4s._
 import org.http4s.client.blaze.PooledHttp1Client
 import org.http4s.dsl._
-import org.http4s.server.Server
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, WordSpec}
 import org.slf4j.{Logger => UnderlyingLogger}
@@ -31,8 +30,9 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
     // val db = Database.forConfig("h2mem1")
     val db = Database.forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
 //    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
-    var server: Server = null
-    val client = PooledHttp1Client()
+    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
+    val server = main.createServer
+    var client = PooledHttp1Client()
     val cardDao = new CardDao(db)
 
     val card1 = {
@@ -74,18 +74,19 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         clearDatabase()
         initDatabase()
         insertCards()
-        val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
-        server = main.createServer
+//        server = main.createServer
+        client = PooledHttp1Client()
 
     }
 
     after {
-        server.shutdownNow()
+//        server.shutdownNow()
+        client.shutdownNow() // I need to shut down the client after each call, otherwise it hangs after a certain no of calls.
     }
 
     override def afterAll {
         server.shutdownNow()
-        client.shutdownNow()
+//        client.shutdownNow()
         Database.forURL("jdbc:h2:mem:test1").close()
     }
 
@@ -279,8 +280,16 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         }
     }
 
+
     "PUT card" when {
+
         "valid card" should {
+            "test1" in {
+                val helloJames = client.expect[String]("http://localhost:8070/api/hello/James")
+                val result = helloJames.run
+                assert(result == "Hello, James")
+            }
+
             "give 200 Ok" in {
                 val body = toBody(s"""{ "id": "${card1.id.toString}", "front": "Front 1 mod", "back": "Back 1 mod" }""")
                 val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
@@ -292,6 +301,12 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         }
 
         "card cannot be parsed from body" should {
+            "test1" in {
+                val helloJames = client.expect[String]("http://localhost:8070/api/hello/James")
+                val result = helloJames.run
+                assert(result == "Hello, James")
+            }
+
             "give 400 Bad Request" in {
                 assert(true)
                 val body = toBody("""{ "thisis": notacard }""")
@@ -319,13 +334,13 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
                 assert(response.status == Status.BadRequest)
 
             }
-//            "describe error in body" in {
-//                val body = toBody(s"""{ "id": "${card1.id.toString}", "back": "Back 1 mod" }""")
-//                val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
-//                val response = client.toHttpService.run(request).run
-//                val responseBody = extractBody(response)
-//                assert(responseBody == SystemMessages.CannotBeEmpty("front").message)
-//            }
+            "describe error in body" in {
+                val body = toBody(s"""{ "id": "${card1.id.toString}", "back": "Back 1 mod" }""")
+                val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
+                val responseBody = extractBody(response)
+                assert(responseBody == SystemMessages.CannotBeEmpty("front").message)
+            }
         }
 
         // TODO: Malformated body, missing front, missing back
