@@ -202,6 +202,18 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
 
     "POST card" when {
 
+        "badly formulated card" should {
+            "give 400 Bad Request w/ error message" in {
+                val body = toBody("""{ "thisis": notacard }""")
+                val request = Request(Method.POST, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
+                val responseBody = extractBody(response)
+
+                assert(response.status == Status.BadRequest)
+                assert(responseBody == "Could not parse Card from body.")
+            }
+        }
+
         "valid card" should {
             val body = toBody("{ \"front\": \"A\", \"back\": \"B\", \"exampleOfUse\": \"C\" }")
             val request = Request(Method.POST, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
@@ -251,8 +263,6 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
                 assert(responseBody == SystemMessages.CannotBeEmpty("back").message)
             }
         }
-
-        // TODO: Malformated body
     }
 
     "DELETE card" when {
@@ -265,7 +275,13 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
             }
 
             "delete card" in {
-                assert(false)
+                val uri = baseUri / "00000000-0000-0000-0000-000000000001"
+                val deleteRequest = Request(Method.DELETE, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
+                client.toHttpService.run(deleteRequest).run
+
+                val getRequest = Request(Method.GET, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
+                def response = client.toHttpService.run(getRequest).run
+                assert(response.status == Status.NotFound)
             }
         }
 
@@ -284,29 +300,20 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
     "PUT card" when {
 
         "valid card" should {
-            "test1" in {
-                val helloJames = client.expect[String]("http://localhost:8070/api/hello/James")
-                val result = helloJames.run
-                assert(result == "Hello, James")
-            }
-
-            "give 200 Ok" in {
+            "give 200 Ok /w updated card in body" in {
                 val body = toBody(s"""{ "id": "${card1.id.toString}", "front": "Front 1 mod", "back": "Back 1 mod" }""")
                 val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
                 lazy val response = client.toHttpService.run(request).run
-                assert(response.status == Status.Ok)
-            }
+                val responseBody = extractBody(response)
+                val cardResponse = decode[Dto.CardResponse](responseBody).valueOr(e => throw e)
+                val expectedRespone = Dto.CardResponse(card1.id.toString, "Front 1 mod", "Back 1 mod", None)
 
-            // TODO: Return card in body
+                assert(response.status == Status.Ok)
+                assert(cardResponse == expectedRespone)
+            }
         }
 
         "card cannot be parsed from body" should {
-            "test1" in {
-                val helloJames = client.expect[String]("http://localhost:8070/api/hello/James")
-                val result = helloJames.run
-                assert(result == "Hello, James")
-            }
-
             "give 400 Bad Request" in {
                 assert(true)
                 val body = toBody("""{ "thisis": notacard }""")
@@ -328,7 +335,7 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
 
         "front text is missing" should {
             "give 400 Bad Request" in {
-                val body = toBody("""{ "thisis": notacard }""")
+                val body = toBody(s"""{ "id": "${card1.id.toString}", "back": "Back 1 mod" }""")
                 val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
                 val response = client.toHttpService.run(request).run
                 assert(response.status == Status.BadRequest)
@@ -343,8 +350,26 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
             }
         }
 
-        // TODO: Malformated body, missing front, missing back
+        "back text is missing" should {
+            "give 400 Bad Request w/ error message" in {
+                val body = toBody(s"""{ "id": "${card1.id.toString}", "front": "Front 1 mod" }""")
+                val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+                val response = client.toHttpService.run(request).run
+                val responseBody = extractBody(response)
+                assert(response.status == Status.BadRequest)
+                assert(responseBody == SystemMessages.CannotBeEmpty("back").message)
+            }
+        }
     }
+
+    "WIN" when {
+        "something" in {
+            val uri = baseUri / "ween"
+            val body = toBody(s"""{ "id": "${card1.id.toString}" }""")
+            val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+        }
+    }
+
 
     def toBody(body: String): EntityBody = {
         val byteV: ByteVector = ByteVector.encodeUtf8(body).right.getOrElse(ByteVector(0))
