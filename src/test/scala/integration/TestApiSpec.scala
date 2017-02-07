@@ -1,12 +1,15 @@
 package integration
 
 
+import java.time.ZonedDateTime
 import java.util.UUID
 
 import application.{CardResponseMapper, CardUseCases, Dto}
 import com.typesafe.scalalogging.Logger
 import domain._
-import infrastructure.SystemMessages
+import infrastructure.{DateFormat, SystemMessages}
+import io.circe.Decoder._
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import io.circe.generic.auto._
 import io.circe.parser._
 import org.http4s._
@@ -24,12 +27,17 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll with MockFactory {
+//    implicit val TimestampFormat: Encoder[ZonedDateTime] with Decoder[ZonedDateTime] = new Encoder[ZonedDateTime] with Decoder[ZonedDateTime] {
+//        override def apply(a: ZonedDateTime): Json = Encoder.encodeString.apply(a.toString) //  df.format(a.toEpochSecond))
+//        override def apply(c: HCursor): Result[ZonedDateTime] = Decoder.decodeString.map(s => ZonedDateTime.now).apply(c)
+//    }
+
 
     val underlyingLoggerMock = stub[UnderlyingLogger]
     // Using a mock logger to prevent real logging.
     // val db = Database.forConfig("h2mem1")
     val db = Database.forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
-//    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
+    //    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
     val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
     val server = main.createServer
     var client = PooledHttp1Client()
@@ -74,19 +82,19 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         clearDatabase()
         initDatabase()
         insertCards()
-//        server = main.createServer
+        //        server = main.createServer
         client = PooledHttp1Client()
 
     }
 
     after {
-//        server.shutdownNow()
+        //        server.shutdownNow()
         client.shutdownNow() // I need to shut down the client after each call, otherwise it hangs after a certain no of calls.
     }
 
     override def afterAll {
         server.shutdownNow()
-//        client.shutdownNow()
+        //        client.shutdownNow()
         Database.forURL("jdbc:h2:mem:test1").close()
     }
 
@@ -193,7 +201,8 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
 
                 val body = extractBody(response)
                 val cardResponse = decode[Dto.CardResponse](body).valueOr(e => throw e)
-                val expectedResponse = Dto.CardResponse(card1.id.toString, card1.front.text, card1.back.text, card1.back.exampleOfUse)
+                val expectedResponse = Dto.CardResponse(card1.id.toString, card1.front.text, card1.back.text, card1.back.exampleOfUse,
+                    Dto.CardStatsResponse(None, 0, 0, 0, 0))
 
                 assert(cardResponse == expectedResponse)
             }
@@ -227,7 +236,8 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
                 val responseBody = extractBody(response)
                 val cardResponse = decode[Dto.CardResponse](responseBody).valueOr(e => throw e)
 
-                val expectedRespone = Dto.CardResponse(cardResponse.id, "A", "B", Some("C"))
+                val expectedRespone = Dto.CardResponse(cardResponse.id, "A", "B", Some("C"),
+                    Dto.CardStatsResponse(None, 0, 0, 0, 0))
                 assert(cardResponse == expectedRespone)
             }
         }
@@ -306,7 +316,8 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
                 lazy val response = client.toHttpService.run(request).run
                 val responseBody = extractBody(response)
                 val cardResponse = decode[Dto.CardResponse](responseBody).valueOr(e => throw e)
-                val expectedRespone = Dto.CardResponse(card1.id.toString, "Front 1 mod", "Back 1 mod", None)
+                val expectedRespone = Dto.CardResponse(card1.id.toString, "Front 1 mod", "Back 1 mod", None,
+                    Dto.CardStatsResponse(None, 0, 0, 0, 0))
 
                 assert(response.status == Status.Ok)
                 assert(cardResponse == expectedRespone)
@@ -363,10 +374,30 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
     }
 
     "WIN" when {
-        "something" in {
-            val uri = baseUri / "ween"
-            val body = toBody(s"""{ "id": "${card1.id.toString}" }""")
-            val request = Request(Method.PUT, baseUri, HttpVersion.`HTTP/1.1`, Headers.empty, body)
+        "valid id" should {
+            "give 200 Ok w/ updated stats in body" in {
+                val uri = baseUri / card1.id.toString / "win"
+                val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
+                val response = client.toHttpService.run(request).run
+                val responseBody = extractBody(response)
+                val cardResponse = decode[Dto.CardResponse](responseBody).valueOr(e => throw e)
+                val lastVisited = cardResponse.stats.lastVisited.get
+                val expected = Dto.CardResponse(card1.id.toString, card1.front.text, card1.back.text, card1.back.exampleOfUse,
+                    Dto.CardStatsResponse(Some(lastVisited), 1, 0, 1, 1))
+
+                assert(response.status == Status.Ok)
+                assert(cardResponse == expected)
+                assert(DateFormat.standard.parse(lastVisited).getTime - ZonedDateTime.now.toEpochSecond < 60)
+            }
+        }
+
+        "invalid id" should {
+            "give 404 Not found" in {
+                val uri = baseUri / "99999999-9999-9999-9999-999999999999" / "win"
+                val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
+                val response = client.toHttpService.run(request).run
+                assert(response.status == Status.NotFound)
+            }
         }
     }
 
