@@ -64,9 +64,14 @@ class CardUseCases(logger: Logger, cardDao: CardDao) {
     //    }
 
     def win(id: String): Either[SystemMessage, Dto.CardResponse] = {
-        parseUuid(id).right.flatMap(uuid => winWithUuid(uuid))
+        parseUuid(id).right.flatMap(uuid => actionWithUpdate(uuid)(Card.win(ZonedDateTime.now)))
     }
-        //        for {
+
+    def lose(id: String): Either[SystemMessage, Dto.CardResponse] = {
+        parseUuid(id).right.flatMap(uuid => actionWithUpdate(uuid)(Card.lose(ZonedDateTime.now)))
+    }
+
+    //        for {
         //            uuid <- parseUUID(id).right
         //            c1 <- winWithUuid(uuid).right
         //        } yield c1
@@ -115,6 +120,34 @@ class CardUseCases(logger: Logger, cardDao: CardDao) {
                 case Some(card: Card) => {
                     logger.info("Found card, intenting to save.")
                     val c = card.win(ZonedDateTime.now)
+                    val updateFuture = cardDao.update(c)
+
+                    updateFuture.onFailure { case e =>
+                        logger.error("CardDao.update", e)
+                        Left(SystemMessages.DatabaseError(e.getMessage))
+                    }
+
+                    Right(CardResponseMapper(c))
+                }
+            }
+            case Failure(e) => {
+                logger.error("CardDao.getAll", e)
+                Left(SystemMessages.DatabaseError(e.getMessage))
+            }
+
+        }
+
+    }
+
+    private def actionWithUpdate(id: UUID)(action: (Card) => Card): Either[SystemMessage, Dto.CardResponse] = {
+        val future = cardDao.getById(id)
+
+        Await.ready(future, DurationInt(3).seconds).value.get match {
+            case Success(cardOption) => cardOption match {
+                case None => Left(SystemMessages.InvalidId("Card", id))
+                case Some(card: Card) => {
+                    logger.info("Found card, intenting to save.")
+                    val c = action(card)
                     val updateFuture = cardDao.update(c)
 
                     updateFuture.onFailure { case e =>

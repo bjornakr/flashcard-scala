@@ -9,7 +9,6 @@ import com.typesafe.scalalogging.Logger
 import domain._
 import infrastructure.{DateFormat, SystemMessages}
 import io.circe.Decoder._
-import io.circe.{Decoder, Encoder, HCursor, Json}
 import io.circe.generic.auto._
 import io.circe.parser._
 import org.http4s._
@@ -27,52 +26,48 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll with MockFactory {
-//    implicit val TimestampFormat: Encoder[ZonedDateTime] with Decoder[ZonedDateTime] = new Encoder[ZonedDateTime] with Decoder[ZonedDateTime] {
-//        override def apply(a: ZonedDateTime): Json = Encoder.encodeString.apply(a.toString) //  df.format(a.toEpochSecond))
-//        override def apply(c: HCursor): Result[ZonedDateTime] = Decoder.decodeString.map(s => ZonedDateTime.now).apply(c)
-//    }
 
 
-    val underlyingLoggerMock = stub[UnderlyingLogger]
+    private val underlyingLoggerMock = stub[UnderlyingLogger]
     // Using a mock logger to prevent real logging.
     // val db = Database.forConfig("h2mem1")
-    val db = Database.forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
+    private val db = Database.forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
     //    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
-    val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
-    val server = main.createServer
-    var client = PooledHttp1Client()
-    val cardDao = new CardDao(db)
+    private val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
+    private val server = main.createServer
+    private var client = PooledHttp1Client()
+    private val cardDao = new CardDao(db)
 
-    val card1 = {
+    private val card1 = {
         val stats = new CardStatistics(None, new Wins(0) {}, new Losses(0) {}, new WinStreak(0) {}) {}
         new Card(UUID.fromString("00000000-0000-0000-0000-000000000001"),
             new Front("Front 1") {}, new Back("Back 1", Some("ExampleOfUse 1")) {}, stats) {}
     }
 
-    val card2 = {
+    private val card2 = {
         val stats = new CardStatistics(None, new Wins(0) {}, new Losses(0) {}, new WinStreak(0) {}) {}
         new Card(UUID.fromString("00000000-0000-0000-0000-000000000002"),
             new Front("Front 2") {}, new Back("Back 2", Some("ExampleOfUse 2")) {}, stats) {}
     }
 
-    val allCards = List(card1, card2)
+    private val allCards = List(card1, card2)
 
 
-    def clearDatabase() = {
+    def clearDatabase(): Unit = {
         val cards = TableQuery[CardTable]
         val dropCardsAction = slick.dbio.DBIO.seq(cards.schema.drop)
         val dropCardsFuture = db.run(dropCardsAction)
         Await.ready(dropCardsFuture, Duration.Inf) //.value.get
     }
 
-    def initDatabase() = {
+    def initDatabase(): Unit = {
         val cards = TableQuery[CardTable]
         val setup = slick.dbio.DBIO.seq(cards.schema.create)
         val dbSetupFuture = db.run(setup)
         Await.ready(dbSetupFuture, Duration.Inf).value.get
     }
 
-    def insertCards() = {
+    def insertCards(): Unit = {
         val createPromise = cardDao.saveAll(allCards)
         Await.result(createPromise, Duration.Inf)
     }
@@ -98,10 +93,10 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         Database.forURL("jdbc:h2:mem:test1").close()
     }
 
-    def extractBody(r: Response): String =
+    private def extractBody(r: Response): String =
         EntityDecoder.decodeString(r).run
 
-    val baseUri = Uri.fromString("http://localhost:8070/api/cards").valueOr(e => throw e)
+    private val baseUri = Uri.fromString("http://localhost:8070/api/cards").valueOr(e => throw e)
 
     "test" in {
         val helloJames = client.expect[String]("http://localhost:8070/api/hello/James")
@@ -373,9 +368,9 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         }
     }
 
-    "WIN" when {
+    "POST / WIN" when {
         "valid id" should {
-            "give 200 Ok w/ updated stats in body" in {
+            "give 200 Ok w/ updated card in body" in {
                 val uri = baseUri / card1.id.toString / "win"
                 val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
                 val response = client.toHttpService.run(request).run
@@ -394,6 +389,35 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
         "invalid id" should {
             "give 404 Not found" in {
                 val uri = baseUri / "99999999-9999-9999-9999-999999999999" / "win"
+                val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
+                val response = client.toHttpService.run(request).run
+                assert(response.status == Status.NotFound)
+            }
+        }
+    }
+
+    "POST / LOSE" when {
+        "valid id" should {
+            "give 200 Ok w/ updated card in body." in {
+                val uri = baseUri / card1.id.toString / "lose"
+                val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
+                val response = client.toHttpService.run(request).run
+                assert(response.status == Status.Ok)
+
+                val responseBody = extractBody(response)
+                val cardResponse = decode[Dto.CardResponse](responseBody).valueOr(e => throw e)
+                val lastVisited = cardResponse.stats.lastVisited.get
+                val expected = Dto.CardResponse(card1.id.toString, card1.front.text, card1.back.text, card1.back.exampleOfUse,
+                    Dto.CardStatsResponse(Some(lastVisited), 0, 1, 0, 1))
+
+                assert(cardResponse == expected)
+                assert(DateFormat.standard.parse(lastVisited).getTime - ZonedDateTime.now.toEpochSecond < 60)
+            }
+        }
+
+        "invalid id" should {
+            "give 404 Not found" in {
+                val uri = baseUri / "99999999-9999-9999-9999-999999999999" / "lose"
                 val request = Request(Method.POST, uri, HttpVersion.`HTTP/1.1`, Headers.empty, EmptyBody)
                 val response = client.toHttpService.run(request).run
                 assert(response.status == Status.NotFound)

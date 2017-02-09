@@ -49,6 +49,7 @@ abstract case class CardStatistics(lastVisited: Option[ZonedDateTime], wins: Win
 
 // NB! Do not instantiate directly
 abstract case class Card(id: UUID, front: Front, back: Back, stats: CardStatistics) {
+    // TODO: No OO DDD - should be in Card object.
     def win(now: ZonedDateTime): Card = {
         val newStats = new CardStatistics(Some(now), Wins(stats.wins.get + 1), stats.losses, WinStreak(stats.winStreak.get + 1)) {}
         new Card(id, front, back, newStats) {}
@@ -71,6 +72,18 @@ object Card {
 
     def updateFaces(orig: Card, updated: Card): Card = {
         new Card(orig.id, updated.front, updated.back, orig.stats) {}
+    }
+
+    def win(now: ZonedDateTime)(card: Card): Card = {
+        val stats = card.stats
+        val newStats = new CardStatistics(Some(now), Wins(stats.wins.get + 1), stats.losses, WinStreak(stats.winStreak.get + 1)) {}
+        new Card(card.id, card.front, card.back, newStats) {}
+    }
+
+    def lose(now: ZonedDateTime)(card: Card): Card = {
+        val stats = card.stats
+        val newStats = new CardStatistics(Some(now), stats.wins, Losses(stats.losses.get + 1), WinStreak(0)) {}
+        new Card(card.id, card.front, card.back, newStats) {}
     }
 }
 

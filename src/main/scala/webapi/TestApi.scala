@@ -10,7 +10,6 @@ import org.http4s._
 import org.http4s.dsl.{Root, _}
 
 import scalaz.concurrent.Task
-import Tsf.TimestampFormat
 
 class TestApi(cardService: CardUseCases) {
 
@@ -87,6 +86,19 @@ class TestApi(cardService: CardUseCases) {
                 }
             }
         }
+
+        case POST -> Root / "cards" / id / "lose" => {
+            val card = cardService.lose(id)
+
+            card match {
+                case Left(e) => decideStatus(e)
+                case Right(r) => {
+                    val jsonResult = r.asJson.noSpaces
+                    Ok(jsonResult)
+                }
+            }
+        }
+
 
 
         case request@PUT -> Root / "cards" => {
