@@ -11,7 +11,7 @@ import org.http4s.dsl.{Root, _}
 
 import scalaz.concurrent.Task
 
-class TestApi(cardService: CardUseCases) {
+class CardApi(cardService: CardUseCases) {
 
 //    implicit val TimestampFormat : Encoder[ZonedDateTime] with Decoder[ZonedDateTime] = new Encoder[ZonedDateTime] with Decoder[ZonedDateTime] {
 //        val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'")

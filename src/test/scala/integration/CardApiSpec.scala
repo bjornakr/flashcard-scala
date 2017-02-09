@@ -20,18 +20,18 @@ import org.slf4j.{Logger => UnderlyingLogger}
 import repository.{CardDao, CardTable}
 import scodec.bits.ByteVector
 import slick.driver.H2Driver.api._
-import webapi.{Main, TestApi}
+import webapi.{Main, CardApi}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll with MockFactory {
+class CardApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll with MockFactory {
     private val db = Database.forURL("jdbc:h2:mem:test1;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
 
     // Using a mock logger to prevent real logging.
     private val underlyingLoggerMock = stub[UnderlyingLogger]
 
-    private val main = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
+    private val main = new Main(new CardApi(new CardUseCases(Logger(underlyingLoggerMock), new CardDao(db))))
     private val server = main.createServer
     private var client = PooledHttp1Client()
     private val cardDao = new CardDao(db)
@@ -111,7 +111,7 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
             "log errors" in {
                 // Here we're setting up the application again to set the correct logger mock.
                 val underlyingLoggerMock2 = mock[UnderlyingLogger]
-                val main2 = new Main(new TestApi(new CardUseCases(Logger(underlyingLoggerMock2), new CardDao(db))))
+                val main2 = new Main(new CardApi(new CardUseCases(Logger(underlyingLoggerMock2), new CardDao(db))))
                 (underlyingLoggerMock2.isErrorEnabled: () => Boolean).expects().returning(true)
                 (underlyingLoggerMock2.error(_: String, _: Throwable)).expects(*, *).once()
 
@@ -303,7 +303,7 @@ class TestApiSpec extends WordSpec with BeforeAndAfter with BeforeAndAfterAll wi
                 val body = toBody(s"""{ "id": "${card1.id.toString}", "front": "Front 1 mod" }""")
                 val response = executeRequest(Method.PUT, baseUri, body)
                 assert(response.status == Status.BadRequest)
-                
+
                 val responseBody = extractBody(response)
                 assert(responseBody == SystemMessages.CannotBeEmpty("back").message)
             }
